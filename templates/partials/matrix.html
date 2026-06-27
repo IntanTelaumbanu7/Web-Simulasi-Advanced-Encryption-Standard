@@ -1,0 +1,7 @@
+<table class="matrix">
+  {% for row in matrix %}
+  <tr>
+    {% for cell in row %}<td>{{ cell }}</td>{% endfor %}
+  </tr>
+  {% endfor %}
+</table>

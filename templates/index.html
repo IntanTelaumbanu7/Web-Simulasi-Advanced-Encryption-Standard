@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Web Simulasi AES-128</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <div class="orb orb-a"></div>
+  <div class="orb orb-b"></div>
+  <main class="container">
+    <section class="hero glass">
+      <div>
+        <p class="eyebrow">Pembangunan Web Simulasi</p>
+        <h1>Web Simulasi Advanced Encryption Standard</h1>
+        <p class="lead">Aplikasi edukasi untuk enkripsi dan dekripsi AES-128 lengkap dengan Key Expansion, Round Key, State Matrix 4×4, dan detail setiap ronde.</p>
+      </div>
+      <div class="hero-card">
+
+        <h3>Identitas Mahasiswa</h3>
+
+        <div class="info-row">
+            <span>Nama</span>
+            <strong>Intan Telaumbanua</strong>
+        </div>
+
+        <div class="info-row">
+            <span>NIM</span>
+            <strong>301230016</strong>
+        </div>
+
+        <div class="info-row">
+            <span>Kelas</span>
+            <strong>6B</strong>
+        </div>
+
+    </div>
+      </div>
+    </section>
+
+    <form class="panel glass" method="POST" id="aesForm">
+      <input type="hidden" name="mode" id="mode" value="{{ form.mode }}" />
+      <div class="form-grid top-grid">
+        <label class="field full">
+          <span>Pilih Contoh Data Otomatis</span>
+          <select name="sample" id="sampleSelect">
+            {% for key, sample in samples.items() %}
+              <option value="{{ key }}" {% if form.sample == key %}selected{% endif %}>{{ sample.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+
+      <div class="notice" id="sampleInfo"></div>
+
+      <div class="mode-tabs" role="group" aria-label="Mode AES">
+        <button type="button" class="tab {% if form.mode == 'encrypt' %}active{% endif %}" data-mode="encrypt">Enkripsi</button>
+        <button type="button" class="tab {% if form.mode == 'decrypt' %}active{% endif %}" data-mode="decrypt">Dekripsi</button>
+      </div>
+
+      <div class="input-choice" id="inputChoice">
+        <label><input type="radio" name="input_type" value="hex" {% if form.input_type == 'hex' %}checked{% endif %}> Plaintext Hex 32 karakter</label>
+        <label><input type="radio" name="input_type" value="text" {% if form.input_type == 'text' %}checked{% endif %}> Plaintext Teks maksimal 16 karakter</label>
+      </div>
+
+      <label class="field full">
+        <span id="inputLabel">Plaintext</span>
+        <textarea name="input_value" id="inputValue" rows="4" placeholder="Masukkan plaintext atau ciphertext di sini">{{ form.input_value }}</textarea>
+        <small id="inputHelp">Untuk hex: gunakan 32 karakter 0-9/A-F. Untuk teks: maksimal 16 karakter ASCII.</small>
+      </label>
+
+      <label class="field full">
+        <span>Key AES-128 (32 karakter hex)</span>
+        <input name="key" id="keyInput" value="{{ form.key }}" placeholder="000102030405060708090A0B0C0D0E0F" />
+      </label>
+
+      <div class="button-row">
+        <button class="primary" type="submit" name="submit_action" value="encrypt">ENCRYPT</button>
+        <button class="danger" type="submit" name="submit_action" value="decrypt">DECRYPT</button>
+        <button class="light" type="button" id="resetBtn">RESET</button>
+        <button class="light" type="button" id="toggleDetails">SHOW / HIDE DETAIL</button>
+      </div>
+    </form>
+
+    {% if error %}
+      <section class="alert glass">{{ error }}</section>
+    {% endif %}
+
+    {% if result %}
+      <section class="output glass">
+        <div>
+          <span class="pill">OUTPUT {{ 'CIPHERTEXT' if result.mode == 'encrypt' else 'PLAINTEXT' }}</span>
+          <h2 id="outputHex">{{ result.output_hex }}</h2>
+          <p class="readable">Teks terbaca: <strong>{{ result.output_text or '-' }}</strong></p>
+        </div>
+        <button class="copy" type="button" data-copy="{{ result.output_hex }}">COPY OUTPUT HEX</button>
+      </section>
+
+      <section class="details glass" id="detailsPanel">
+        <div class="section-title">
+          <p class="eyebrow">Detail Perhitungan</p>
+          <h2>State Matrix dan Key Schedule AES-128</h2>
+        </div>
+
+        <details open class="block">
+          <summary>State Awal Input</summary>
+          <div class="matrix-wrap single">
+            {% set matrix = result.initial_state %}
+            {% include 'partials/matrix.html' %}
+          </div>
+        </details>
+
+        <details class="block">
+          <summary>Key Expansion: W[0] sampai W[43]</summary>
+          <div class="scroll-table">
+            <table>
+              <thead><tr><th>Word</th><th>Hex</th><th>Byte</th></tr></thead>
+              <tbody>
+                {% for w in result.words %}
+                <tr><td>W[{{ w.index }}]</td><td><code>{{ w.hex }}</code></td><td>{{ w.bytes|join(' ') }}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <details class="block">
+          <summary>Proses Fungsi g(): RotWord, SubWord, XOR Rcon</summary>
+          <div class="scroll-table">
+            <table>
+              <thead><tr><th>i</th><th>Operasi</th><th>W[i-4]</th><th>Prev/Temp</th><th>RotWord</th><th>SubWord</th><th>Rcon</th><th>After g</th><th>W[i]</th></tr></thead>
+              <tbody>
+                {% for d in result.key_details %}
+                <tr>
+                  <td>{{ d.index }}</td><td>{{ d.operation }}</td><td><code>{{ d.w_im4 }}</code></td><td><code>{{ d.prev }}</code></td>
+                  <td><code>{{ d.rotword }}</code></td><td><code>{{ d.subword }}</code></td><td><code>{{ d.rcon }}</code></td><td><code>{{ d.after_g }}</code></td><td><code>{{ d.result }}</code></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+
+        <details class="block">
+          <summary>Round Key RK0 sampai RK10</summary>
+          <div class="key-grid">
+          {% for rk in result.round_keys %}
+            <div class="mini-card">
+              <h4>{{ rk.name }}</h4>
+              {% set matrix = rk.matrix %}
+              {% include 'partials/matrix.html' %}
+            </div>
+          {% endfor %}
+          </div>
+        </details>
+
+        <div class="rounds">
+          {% for step in result.steps %}
+          <details class="block" open>
+            <summary>{{ step.round }}</summary>
+            {% for op in step.operations %}
+              <article class="operation-card">
+                <div class="op-head">
+                  <h3>{{ op.name }}</h3>
+                  {% if op.note %}<p>{{ op.note }}</p>{% endif %}
+                </div>
+                <div class="matrix-pair">
+                  <div>
+                    <span class="tag">Sebelum</span>
+                    {% set matrix = op.before %}
+                    {% include 'partials/matrix.html' %}
+                  </div>
+                  <div class="arrow">→</div>
+                  <div>
+                    <span class="tag after">Sesudah</span>
+                    {% set matrix = op.after %}
+                    {% include 'partials/matrix.html' %}
+                  </div>
+                </div>
+              </article>
+            {% endfor %}
+          </details>
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+  </main>
+
+  <script>
+    window.AES_SAMPLES = {{ samples|tojson }};
+  </script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
